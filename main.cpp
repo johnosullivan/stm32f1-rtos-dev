@@ -21,8 +21,6 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define MAX 100
-
 #include <libopencm3/stm32/rcc.h>
 #include <libopencm3/stm32/gpio.h>
 #include <libopencm3/stm32/usart.h>
@@ -32,12 +30,9 @@
 
 using namespace std;
 
-#include "clock.h"
-
+#include "clock.hpp"
 //#include "i2c.h"
 //#include "utils.h"
-
-volatile uint32_t system_mirco = 0;
 
 #define SHT31_DEFAULT_ADDR 0x44 /**< SHT31 Default Address */
 #define SHT31_MEAS_HIGHREP_STRETCH                                             \
@@ -58,8 +53,8 @@ volatile uint32_t system_mirco = 0;
 #define SHT31_HEATEREN 0x306D    /**< Heater Enable */
 #define SHT31_HEATERDIS 0x3066   /**< Heater Disable */
 
-/*
-static I2C_Control i2c;
+
+//static I2C_Control i2c;
 static volatile bool readf = false;
 static volatile int isr_count = 0;
 
@@ -84,7 +79,7 @@ static void uart_setup(void) {
 	usart_enable(USART1);
 
 	uart_txq = xQueueCreate(256,sizeof(char));
-}*/
+}
 
 /*
 static void i2c_setup(void) {
@@ -112,7 +107,7 @@ static void gpio_setup(void) {
     GPIO13);
 }
 
-/*
+
 static void uart_task(void *args __attribute__((unused))) {
 	char ch;
 	for (;;) {
@@ -135,6 +130,7 @@ static void uart_puts(const char *s) {
 	}
 }
 
+/*
 static void uart1_uint32_t(char * name, uint32_t value) {
 	char bufValue[10];
 	ltoa(value, bufValue, 10);
@@ -142,12 +138,14 @@ static void uart1_uint32_t(char * name, uint32_t value) {
 	uart_puts(": ");
 	uart_puts(bufValue);
 	uart_puts("\n\r");
-}*/
+}
+*/
 
 static void demo_task1(void *args __attribute__((unused))) {
 	for (;;) {
 		gpio_toggle(GPIOC,GPIO13);
 		vTaskDelay(pdMS_TO_TICKS(1000));
+    uart_puts("#{}\n\r");
 	}
 }
 
@@ -252,39 +250,6 @@ static void sensor_i2c(void *args __attribute__((unused))) {
 	}
 }*/
 
-void micro_second_sleep(uint32_t delay)
-{
-	uint32_t wake = system_mirco + delay;
-	while (wake > system_mirco);
-}
-
-uint32_t micro_second(void)
-{
-	return system_mirco;
-}
-
-void tim2_isr(void)
-{
-	system_mirco++;
-	TIM_SR(TIM2) &= ~TIM_SR_UIF;
-}
-
-void clock_setup(void)
-{
-  // TIM2 Setup / micro_second / us
-	rcc_periph_clock_enable(RCC_TIM2);
-	nvic_enable_irq(NVIC_TIM2_IRQ);
-	nvic_set_priority(NVIC_TIM2_IRQ, 1);
-
-	volatile uint32_t freq = 72;
-
-	TIM_CNT(TIM2) = 1;
-	TIM_PSC(TIM2) = freq;
-	TIM_ARR(TIM2) = 1;
-	TIM_DIER(TIM2) |= TIM_DIER_UIE;
-	TIM_CR1(TIM2) |= TIM_CR1_CEN;
-}
-
 int main(void) {
 	// CPU clock is 72 MHz
 	rcc_clock_setup_in_hse_8mhz_out_72mhz();
@@ -292,13 +257,14 @@ int main(void) {
   // Clock Setup
   clock_setup();
   // I2C Setup
+  //i2c_setup();
   // UART Setup
-	//uart_setup();
+	uart_setup();
   // GPIO Setup
   gpio_setup();
   // SPI Setup
 
-	//xTaskCreate(uart_task,"UART",100,NULL,configMAX_PRIORITIES - 1,NULL);
+	xTaskCreate(uart_task,"UART",100,NULL,configMAX_PRIORITIES - 1,NULL);
 
 	// Demoing the blinking light example using the delay from FreeRTOS (vTaskDelay->pdMS_TO_TICKS) and a self managed timer for the same results (micro_second_sleep)
   /*
@@ -309,7 +275,7 @@ int main(void) {
   #endif
   */
 
-  xTaskCreate(demo_task2, "BLINK1", 100, NULL, configMAX_PRIORITIES - 1, NULL);
+  xTaskCreate(demo_task1, "BLINK1", 100, NULL, configMAX_PRIORITIES - 1, NULL);
 
 	//xTaskCreate(sensor_i2c,"SHT31",100,NULL,configMAX_PRIORITIES - 1,NULL);
 	//xTaskCreate(i2c_status,"I2CSTATUS",100,NULL,configMAX_PRIORITIES-1,NULL);
